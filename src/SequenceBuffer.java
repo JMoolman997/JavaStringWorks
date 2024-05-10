@@ -1,13 +1,15 @@
 package src;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.ListIterator;
-
-import java.util.ArrayList;
+import java.util.List;
+import java.util.Arrays;
 
 import java.util.Collections;
 import java.util.Comparator;
 
+import java.util.function.Supplier;
 /**
  * Interface defining the structure and capabilities of a sequence buffer,
  * which manages a series of subsequences,
@@ -911,6 +913,173 @@ class BrfBuffer extends AbstractSequenceBuffer<String> {
         System.out.println(String.format("| Number of SubSequences: ", + subSequences.size()));
         System.out.println("+-------------------------------------------------------------+");
         printSubSequences();
+    }
+}
+
+/**
+ * Main class for running configured tests on different implementations of SequenceBuffer.
+ * Each test is defined within a TestConfig and executed to validate functionality.
+ */
+class SequenceBufferTest {
+
+    private static class TestAction {
+        enum ActionType {ADD, DELETE, CHECK_PROCESSED, CONCAT_RESULTS, CUSTOM}
+        ActionType type;
+        Integer start;  // Used for start index in add/delete actions
+        Integer end;    // Used for end index in add actions
+        String result;  // Used for result string in add actions
+        Object expectedOutcome; // Generic object to handle various types of expected results
+        String testName;
+        Integer size;   // Additional field to represent the size or length parameter
+    
+        // Updated constructor to include the size parameter
+        private TestAction(ActionType type, Integer start, Integer end, String result, Object expectedOutcome, String testName, Integer size) {
+            this.type = type;
+            this.start = start;
+            this.end = end;
+            this.result = result;
+            this.expectedOutcome = expectedOutcome;
+            this.testName = testName;
+            this.size = size;
+        }
+    
+        // Factory methods for different types of actions, including size where applicable
+        static TestAction add(int start, int end, String result, String testName, Integer size) {
+            return new TestAction(ActionType.ADD, start, end, result, true, testName, size);
+        }
+    
+        static TestAction delete(int index, String testName, Integer size) {
+            return new TestAction(ActionType.DELETE, index, null, null, true, testName, size);
+        }
+    
+        static TestAction checkProcessed(boolean expected, String testName) {
+            return new TestAction(ActionType.CHECK_PROCESSED, null, null, null, expected, testName, null);
+        }
+    
+        static TestAction concatResults(String expected, String testName) {
+            return new TestAction(ActionType.CONCAT_RESULTS, null, null, null, expected, testName, null);
+        }
+    
+        static TestAction custom(String testName, Object expected, Integer size) {
+            return new TestAction(ActionType.CUSTOM, null, null, null, expected, testName, size);
+        }
+    }
+    
+    private static class TestConfig {
+        Supplier<SequenceBuffer> bufferSupplier;
+        List<TestAction> actions;
+        String description;
+    
+        TestConfig(Supplier<SequenceBuffer> bufferSupplier, List<TestAction> actions, String description) {
+            this.bufferSupplier = bufferSupplier;
+            this.actions = actions;
+            this.description = description;            
+        }
+    }
+
+    private static List<TestConfig> testConfigs = new ArrayList<>();
+
+    public static void main(String[] args) {
+        initializeTestConfigs();
+        testConfigs.forEach(SequenceBufferTest::runTestConfig);
+    }
+
+    private static void initializeTestConfigs() {
+        testConfigs.add(createTestConfig("CharBuffer with different char arrays",
+            new CharBuffer(new char[]{'A', 'b', 'c', 'd', 'e'}),
+            Arrays.asList(
+                TestAction.add(0, 1, "AB", "Add Subsequence at Start", 2),
+                TestAction.add(3, 4, "DE", "Add Subsequence at End", 3),
+                TestAction.checkProcessed(false, "Check Not All Processed"),
+                TestAction.concatResults("AB-*-DE", "Concatenate All Results")
+            )));
+
+        testConfigs.add(createTestConfig("CharBuffer replace entire buffer with translated subsequence",
+            new CharBuffer(new char[]{'1', '2', '3', '4', '5'}),
+            Arrays.asList(
+                TestAction.add(0, 4, "12345", "Add Full Coverage", 1),
+                TestAction.checkProcessed(true, "Check All Processed"),
+                TestAction.concatResults("12345", "Concatenate All Results")
+            )));
+
+        testConfigs.add(createTestConfig("CharBuffer add translated subsequence at begin, mid, end",
+            new CharBuffer(new char[]{'1', '2', '3', '4', '5', '1', '2', '3', '4', '5'}),
+            Arrays.asList(
+                TestAction.add(3, 5, "mid", "Add Subsequence at Mid", 3),
+                TestAction.add(0, 2, "begin", "Add Subsequence at Start", 3),
+                TestAction.add(6, 9, "end", "Add Subsequence at End", 3),
+                TestAction.checkProcessed(true, "Check All Processed"),
+                TestAction.concatResults("begin-mid-end", "Concatenate All Results")
+            )));
+
+        testConfigs.add(createTestConfig("BrfBuffer add subsequence to begin and end with unprocessed centre",
+            new BrfBuffer(new String[]{"1", "12", "14", "145", "15"}),
+            Arrays.asList(
+                TestAction.add(0, 1, "AB", "Add Subsequence at Start", 2),
+                TestAction.add(3, 4, "DE", "Add Subsequence at End", 3),
+                TestAction.checkProcessed(false, "Check Not All Processed"),
+                TestAction.concatResults("AB*DE", "Concatenate All Results")
+            )));
+
+        testConfigs.add(createTestConfig("BrfBuffer replace entire buffer with translated subsequence",
+            new BrfBuffer(new String[]{"1", "12", "14", "145", "15"}),
+            Arrays.asList(
+                TestAction.add(0, 4, "12345", "Add Full Coverage", 1),
+                TestAction.checkProcessed(true, "Check All Processed"),
+                TestAction.concatResults("12345", "Concatenate All Results")
+            )));
+
+        testConfigs.add(createTestConfig("BrfBuffer add translated subsequence at begin, mid, end",
+            new BrfBuffer(new String[]{"1", "12", "14", "145", "15"}),
+            Arrays.asList(
+                TestAction.add(2, 3, "Mid", "Add Subsequence at Mid", 3),
+                TestAction.add(0, 1, "Begin", "Add Subsequence at Start", 3),
+                TestAction.add(4, 4, "End", "Add Subsequence at End", 3),
+                TestAction.checkProcessed(true, "Check All Processed"),
+                TestAction.concatResults("BeginMidEnd", "Concatenate All Results")
+            )));
+    }
+
+    private static TestConfig createTestConfig(String description, SequenceBuffer buffer, List<TestAction> actions) {
+        return new TestConfig(() -> buffer, actions, description);
+    }
+    
+    private static void runTestConfig(TestConfig config) {
+        System.out.println("\n=== Running test configuration ===");
+        System.out.println("Configuration Description: " + config.description);
+        System.out.println("============================================");
+        SequenceBuffer buffer = config.bufferSupplier.get(); // Creates the specific buffer instance
+        for (TestAction action : config.actions) {
+            boolean result = performAction(buffer, action);
+            System.out.println("Action [" + action.testName + "] - Result: " + (result ? "PASS" : "FAIL"));
+            if (!result) {
+                buffer.printSequenceBuffer();
+                System.out.println(buffer.resultToString());
+            }
+        }
+        System.out.println("============================================");
+    }
+
+    private static boolean performAction(SequenceBuffer buffer, TestAction action) {
+        switch (action.type) {
+            case ADD:
+                buffer.addSubSequence(action.start, action.end, action.result);
+
+                return buffer.getSubsequenceSize()==action.size;
+            case DELETE:
+                // Implement delete logic, pseudo code
+                // buffer.deleteSubSequence(action.start);
+                return true;
+            case CHECK_PROCESSED:
+                return buffer.isProcessed() == (Boolean) action.expectedOutcome;
+            case CONCAT_RESULTS:
+                return buffer.resultToString().equals(action.expectedOutcome);
+            case CUSTOM:
+                // Implement custom check logic
+                return true;
+            default:
+                throw new IllegalStateException("Unsupported action type: " + action.type);
+        }
     }
 }
 
