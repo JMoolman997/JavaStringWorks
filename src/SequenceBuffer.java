@@ -23,7 +23,7 @@ public interface SequenceBuffer {
      */
     class SubSequence {
 
-        public Integer iD; // Identifier for the subsequence within the buffer
+        public Integer ID; // Identifier for the subsequence within the buffer
 
         private boolean processed; // Indicates if this subsequence has been processed
         private int startIndex; // Starting index of the subsequence within the main sequence
@@ -493,38 +493,60 @@ abstract class AbstractSequenceBuffer<T> implements SequenceBuffer {
         SubSequence existingSub,
         SubSequence newSub,
         boolean isStartAligned
-        ) {
+    ) {
 
         if (isStartAligned) {
-            // Handle the case where the new subsequence starts where existingSub starts
-            SubSequence newUnprocessedSub = new SubSequence(
-                newSub.getEndIndex() + 1,
-                existingSub.getEndIndex(),
-                ""
-            );
-            existingSub.setEndIndex(newSub.getEndIndex());
-            existingSub.setResult(newSub.getResult());
-            
-            if (newUnprocessedSub.getStartIndex() <= newUnprocessedSub.getEndIndex()) {
-                iterator.add(newUnprocessedSub);
-            }
+            handleStartAlignment(iterator, existingSub, newSub);
         } else {
-            // Handle the case where the new subsequence ends where existingSub ends
-            SubSequence newUnprocessedSub = new SubSequence(
-                existingSub.getStartIndex(),
-                newSub.getStartIndex() - 1,
-                ""
-            );
-            existingSub.setStartIndex(newSub.getStartIndex());
-            existingSub.setResult(newSub.getResult());
-            
-            if (newUnprocessedSub.getStartIndex() <= newUnprocessedSub.getEndIndex()) {
-                iterator.add(newUnprocessedSub);
-            }
+            handleEndAlignment(iterator, existingSub, newSub);
         }
         
         // Update IDs after modifying subsequences
         reassignsubSequenceIDs();
+    }
+
+    /**
+     * Handles the case where the new subsequence starts where existingSub starts.
+     * Adjusts the end of the existing subsequence and may add a new unprocessed subsequence.
+     */
+    private void handleStartAlignment(
+        ListIterator<SubSequence> iterator,
+        SubSequence existingSub,
+        SubSequence newSub
+    ) {
+        SubSequence newUnprocessedSub = new SubSequence(
+            newSub.getEndIndex() + 1,
+            existingSub.getEndIndex(),
+            ""
+        );
+        existingSub.setEndIndex(newSub.getEndIndex());
+        existingSub.setResult(newSub.getResult());
+
+        if (newUnprocessedSub.getStartIndex() <= newUnprocessedSub.getEndIndex()) {
+            iterator.add(newUnprocessedSub);
+        }
+    }
+
+    /**
+     * Handles the case where the new subsequence ends where existingSub ends.
+     * Adjusts the start of the existing subsequence and may add a new unprocessed subsequence.
+     */
+    private void handleEndAlignment(
+        ListIterator<SubSequence> iterator,
+        SubSequence existingSub,
+        SubSequence newSub
+    ) {
+        SubSequence newUnprocessedSub = new SubSequence(
+            existingSub.getStartIndex(),
+            newSub.getStartIndex() - 1,
+            ""
+        );
+        existingSub.setStartIndex(newSub.getStartIndex());
+        existingSub.setResult(newSub.getResult());
+
+        if (newUnprocessedSub.getStartIndex() <= newUnprocessedSub.getEndIndex()) {
+            iterator.add(newUnprocessedSub);
+        }
     }
 
     /**
@@ -543,7 +565,7 @@ abstract class AbstractSequenceBuffer<T> implements SequenceBuffer {
         ListIterator<SubSequence> iterator, 
         SubSequence existingSub, 
         SubSequence newSub
-        ) {
+    ) {
 
         SubSequence before = new SubSequence(
             existingSub.getStartIndex(),
@@ -574,15 +596,15 @@ abstract class AbstractSequenceBuffer<T> implements SequenceBuffer {
      * index relative to existing subsequences. This method iterates 
      * through the ordered list of subsequences, comparing start 
      * indices to determine the correct position for the new subsequence. 
-     * It assigns an iD reflecting this position, ensuring that IDs are 
+     * It assigns an ID reflecting this position, ensuring that IDs are 
      * sequentially ordered by start index.
      * 
      * If the new subsequence should be placed after all existing ones, 
-     * it receives the next available iD.After assigning an iD, 
+     * it receives the next available ID.After assigning an ID, 
      * this method also calls {@code reassignsubSequenceIDs} to ensure all 
-     * subsequences maintain consecutive iD ordering.
+     * subsequences maintain consecutive ID ordering.
      *
-     * @param newSubSequence The new subsequence that needs an iD assigned.
+     * @param newSubSequence The new subsequence that needs an ID assigned.
      */
     private void assignsubSequenceID(SubSequence newSubSequence) {
         int subSeqRank = 1;  // Initialize rank starting from 1
@@ -593,7 +615,7 @@ abstract class AbstractSequenceBuffer<T> implements SequenceBuffer {
             if (newSubSequence.getStartIndex() < subSequence.getStartIndex()) {
                 // If the new subsequence starts before the current one
                 // and assign the current rank and stop
-                newSubSequence.iD = subSeqRank;
+                newSubSequence.ID = subSeqRank;
                 isPlaced = true;
                 break;
             }
@@ -603,7 +625,7 @@ abstract class AbstractSequenceBuffer<T> implements SequenceBuffer {
         // If the new subsequence starts after all existing ones,
         // takes the next available rank
         if (!isPlaced) {
-            newSubSequence.iD = subSeqRank;
+            newSubSequence.ID = subSeqRank;
         }
 
         // reassign IDs to all subsequences to maintain consecutive ordering 
@@ -614,14 +636,14 @@ abstract class AbstractSequenceBuffer<T> implements SequenceBuffer {
      * Reassigns sequential identifiers to all subsequences in the buffer. 
      * This method first sorts the subsequences by their start and end indices
      *  to ensure that IDs are assigned in a meaningful order.
-     * Each subsequence receives an iD corresponding to its position in the sorted list, 
+     * Each subsequence receives an ID corresponding to its position in the sorted list, 
      * starting from 1 and incrementing sequentially.
      */
     private void reassignsubSequenceIDs() {
         sortSubSequences();
         int rank = 1;
         for (SubSequence subSequence : this.subSequences) {
-            subSequence.iD = rank++;  // Increment rank for each subsequence
+            subSequence.ID = rank++;  // Increment rank for each subsequence
         }
     }
 
@@ -737,8 +759,8 @@ class CharBuffer extends AbstractSequenceBuffer<Character> {
     public void printSubSequences() {
         System.out.println("_Subsequences_");
         for (SubSequence subSeq : subSequences) {
-            String output = String.format("iD: %s,Indx: [%d:%d],Str: '%s',Proc: %s,Result: '%s'",
-                                          subSeq.iD, subSeq.getStartIndex(), subSeq.getEndIndex(),
+            String output = String.format("ID: %s,Indx: [%d:%d],Str: '%s',Proc: %s,Result: '%s'",
+                                          subSeq.ID, subSeq.getStartIndex(), subSeq.getEndIndex(),
                                           extractSubstringFromSubSequence(subSeq),
                                           subSeq.isProcessed(), subSeq.getResult());
             System.out.println(output);
@@ -856,8 +878,8 @@ class BrfBuffer extends AbstractSequenceBuffer<String> {
         System.out.println("_Subsequences_");
         for (SubSequence subSeq : subSequences) {
             String output = String.format(
-                "iD: %s, Indices: [%d:%d], Substring: '%s', Processed: %s, Result: '%s'",
-                subSeq.iD, subSeq.getStartIndex(), subSeq.getEndIndex(),
+                "ID: %s, Indices: [%d:%d], Substring: '%s', Processed: %s, Result: '%s'",
+                subSeq.ID, subSeq.getStartIndex(), subSeq.getEndIndex(),
                 extractSubstringFromSubSequence(subSeq),
                 subSeq.isProcessed(), subSeq.getResult()
             );
@@ -886,7 +908,7 @@ class BrfBuffer extends AbstractSequenceBuffer<String> {
             System.out.printf("| %-7d | %-7s | %-24s |%n", i, "", item);
         }
         System.out.println("+-------------------------------------------------------------+");
-        System.out.println(String.format("| Number of SubSequences: ", +subSequences.size()));
+        System.out.println(String.format("| Number of SubSequences: ", + subSequences.size()));
         System.out.println("+-------------------------------------------------------------+");
         printSubSequences();
     }
