@@ -99,8 +99,9 @@ class DoubleArithmeticEvaluator implements ArithmeticEvaluator {
 
         // Combine the arguments into a single expression string
         String expression = String.join(" ", args);
-
+      
         // Instantiate the evaluator and calculate the result
+
         DoubleArithmeticEvaluator evaluator = new DoubleArithmeticEvaluator();
         try {
             Double result = evaluator.evaluate(expression);
